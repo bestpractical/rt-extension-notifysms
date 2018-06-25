@@ -8,11 +8,8 @@ use LWP::UserAgent;
 
 =head2 NotifyTwilio
 
-Send a message using the Twilio web api, requires:
-
-    { @Recipients, $Msg }
-
-    Then uses the Twilio api config values from RT_SiteConfig.pm:
+Send a message using the Twilio web api, requires the follow
+config values from RT_SiteConfig.pm:
 
         Set($TwilioAccounId, 'Secret');
         Set($TwilioAuthToken, 'Secret');

@@ -1,21 +1,21 @@
 NAME
-    RT-Extension-Text-Messages - Provide addional actions to send text
+    RT-Extension-NotifySMS - Provide additional actions to send text
     messages.
 
 DESCRIPTION
-    Provide addional actions for Scrips, that allow for the sending of
+    Provide additional actions for Scrips, that allow for the sending of
     messages inplace of email. The new action can be loaded in the web UI
     from:
 
-    Global -> Actions -> Create
+        Global -> Actions -> Create
 
     where the action module is one of the notify option from this extension:
 
-    "NotifyTwilio"
+        "NotifyTwilio"
 
     For the action you can choose to pass the following parameters:
 
-    All, Owner, Requestor, AdminCc, Cc
+        All, Owner, Requestor, AdminCc, Cc
 
 RT VERSION
     Works with RT 4.4.0
@@ -31,10 +31,8 @@ INSTALLATION
 
             Plugin('RT::Extension::NotifySMS');
 
-        You will need to set the following config values as well as other
-        specific to the notify action being implemented:
-
-            Set(@MessageRoles, 'AdminCc');
+        You will also need to set other config values depending on which sms
+        action is being used, see the module for specifications.
 
     Clear your mason cache
             rm -rf /opt/rt4/var/mason_data/obj
@@ -47,11 +45,11 @@ AUTHOR
 BUGS
     All bugs should be reported via email to
 
-        L<bug-RT-Extension-Text-Messages@rt.cpan.org|mailto:bug-RT-Extension-Text-Messages@rt.cpan.org>
+        L<bug-RT-Extension-NotifySMS@rt.cpan.org|mailto:bug-RT-Extension-NotifySMS@rt.cpan.org>
 
     or via the web at
 
-        L<rt.cpan.org|http://rt.cpan.org/Public/Dist/Display.html?Name=RT-Extension-Text-Messages>.
+        L<rt.cpan.org|http://rt.cpan.org/Public/Dist/Display.html?Name=RT-Extension-NotifySMS>.
 
 LICENSE AND COPYRIGHT
     This software is Copyright (c) 2018 by Bestpractical Solutions
