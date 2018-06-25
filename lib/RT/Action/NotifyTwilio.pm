@@ -5,6 +5,7 @@ use base qw(RT::Action::NotifySMS);
 use strict;
 use warnings;
 use LWP::UserAgent;
+use JSON qw(decode_json);
 
 =head2 NotifyTwilio
 
@@ -50,7 +51,7 @@ sub SendMessage {
 
         api_url => 'https://api.twilio.com/2010-04-01/Accounts/'
             . $Credentials{account_id}
-            . '/Messages'
+            . '/Messages.json'
     );
 
     my $ua = LWP::UserAgent->new;
@@ -67,10 +68,12 @@ sub SendMessage {
         );
         my $response = $ua->post( $Twilio{api_url}, \%text_message );
 
-        if ( $response->is_success ) {
-            RT::Logger->debug( 'Sending message to: ' . $to );
-        } else {
-            RT::Logger->error( 'Failed to send message to: ' . $to );
+        if ( $response->is_error ) {
+            my $result = decode_json( $response->content );
+
+            if ( $result->{message} ) {
+                RT::Logger->error( "$result->{message}" );
+            }
         }
     }
 
