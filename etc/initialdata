@@ -1,0 +1,8 @@
+push @ScripActions, (
+    {
+        Name        => 'Notify Twilio',
+        Description => 'Send SMS messages using Twilio API',
+        ExecModule  => 'NotifyTwilio',
+        Argument    => 'All',
+    },
+);

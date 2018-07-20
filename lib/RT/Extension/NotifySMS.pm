@@ -40,6 +40,13 @@ Works with RT 4.4.0
 
 May need root permissions
 
+=item C<make initdb>
+
+Only run this the first time you install this module.
+
+If you run this twice, you may end up with duplicate data
+in your database.
+
 =item Edit your F</opt/rt4/etc/RT_SiteConfig.pm>
 
 If you are using RT 4.4 or greater, add this line:
