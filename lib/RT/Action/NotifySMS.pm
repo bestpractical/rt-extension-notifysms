@@ -11,7 +11,7 @@ my @recipients;
 sub Prepare {
     my $self = shift;
 
-    $self->SetRecipients();
+    return 0 unless $self->SetRecipients();
     $self->SUPER::Prepare();
 }
 
@@ -26,7 +26,7 @@ sub SetRecipients {
     my ( @To, @PseudoTo, @Cc, @Bcc );
 
     if ( $arg =~ /\bRequestor\b/ ) {
-        push @To, $ticket->Requestors->MemberEmailAddresses;
+        push @To, $ticket->Requestors->UserMembersObj;
     }
 
     # custom role syntax:   gives:
@@ -108,50 +108,28 @@ sub SetRecipients {
         }
 
         my @role_members = (
-            $ticket->RoleGroup( $role->GroupType )->MemberEmailAddresses,
+            $ticket->RoleGroup( $role->GroupType )->UserMembersObj,
             $ticket->QueueObj->RoleGroup( $role->GroupType )
-                ->MemberEmailAddresses,
+                ->UserMembersObj,
         );
-
-        if ( !$type || $type eq 'Cc' ) {
-            push @Cc, @role_members;
-        } elsif ( $type eq 'Bcc' ) {
-            push @Bcc, @role_members;
-        } elsif ( $type eq 'To' ) {
-            push @To, @role_members;
-        }
+        push @To, @role_members;
     }
 
     if ( $arg =~ /\bCc\b/ ) {
-
-        #If we have a To, make the Ccs, Ccs, otherwise, promote them to To
-        if (@To) {
-            push( @Cc, $ticket->Cc->MemberEmailAddresses );
-            push( @Cc, $ticket->QueueObj->Cc->MemberEmailAddresses );
-        } else {
-            push( @Cc, $ticket->Cc->MemberEmailAddresses );
-            push( @To, $ticket->QueueObj->Cc->MemberEmailAddresses );
-        }
+        push( @To, $ticket->Cc->UserMembersObj );
+        push( @To, $ticket->QueueObj->Cc->UserMembersObj );
     }
-
     if (   $arg =~ /\bOwner\b/
         && $ticket->OwnerObj->id != RT->Nobody->id
-        && $ticket->OwnerObj->EmailAddress
         && not $ticket->OwnerObj->Disabled )
     {
-        # If we're not sending to Ccs or requestors,
-        # then the Owner can be the To.
-        if (@To) {
-            push( @Bcc, $ticket->OwnerObj->EmailAddress );
-        } else {
-            push( @To, $ticket->OwnerObj->EmailAddress );
-        }
-
+        my $role_group = $self->TicketObj->RoleGroup('Owner');
+        push( @To, $role_group->UserMembersObj );
     }
 
     if ( $arg =~ /\bAdminCc\b/ ) {
-        push( @Bcc, $ticket->AdminCc->MemberEmailAddresses );
-        push( @Bcc, $ticket->QueueObj->AdminCc->MemberEmailAddresses );
+        push( @To, $ticket->AdminCc->UserMembersObj );
+        push( @To, $ticket->QueueObj->AdminCc->UserMembersObj );
     }
 
     if ( RT->Config->Get('UseFriendlyToLine') ) {
@@ -162,33 +140,39 @@ sub SetRecipients {
         }
     }
 
+    my @NoSquelch;
     if ( $arg =~ /\bOtherRecipients\b/ ) {
         if ( my $attachment = $self->TransactionObj->Attachments->First ) {
-            push @{ $self->{'NoSquelch'}{'Cc'} ||= [] }, map $_->address,
+            push @NoSquelch, map $_->address,
                 Email::Address->parse( $attachment->GetHeader('RT-Send-Cc') );
-            push @{ $self->{'NoSquelch'}{'Bcc'} ||= [] }, map $_->address,
+            push @NoSquelch, map $_->address,
                 Email::Address->parse(
                 $attachment->GetHeader('RT-Send-Bcc') );
         }
     }
 
-    my @roles = \@To;
-    push @roles, \@Cc;
-    push @roles, \@Bcc;
-    push @roles, \@PseudoTo;
+    # See if we can get some phone numbers from our NoSquelched emails
+    if ( @NoSquelch ) {
+        my $user = RT::User->new(RT->SystemUser);
+        foreach my $email (@NoSquelch) {
+            my ($ret, $msg) = $user->Load($email);
+            RT::Logger->info($msg) unless $ret;
+
+            push @To, $user->MobilePhone unless ! $user->MobilePhone;
+        }
+    }
 
     my $user = RT::User->new( RT->SystemUser );
     my @recipients;
 
-    foreach my $role (@roles) {
-        foreach my $user_email ( @{$role} ) {
-            my ( $ret, $msg ) = $user->LoadByEmail($user_email);
-            RT::Logger->error($msg) unless $ret;
-
+    foreach my $role (@To) {
+        while (my $user = $role->Next) {
             push @recipients, $user->MobilePhone
                 unless !$user->MobilePhone;
         }
     }
+    return 0 unless scalar @recipients;
+
     @{ $self->{'Recipients'} } = @recipients;
 }
 
