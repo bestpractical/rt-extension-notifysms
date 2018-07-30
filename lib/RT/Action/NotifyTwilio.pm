@@ -14,7 +14,7 @@ config values from RT_SiteConfig.pm:
 
         Set($TwilioAccounId, 'Secret');
         Set($TwilioAuthToken, 'Secret');
-        Set($APIURL, 'https://api.twilio.com/2010-04-01/Accounts');
+        Set($APIURL, 'https://api.twilio.com/2010-04-01/Accounts/');
         Set($APIDomain, 'api.twilio.com:443');
         Set($APIRealm, 'Twilio API');
         Set($MessageSender, '0123456789');
