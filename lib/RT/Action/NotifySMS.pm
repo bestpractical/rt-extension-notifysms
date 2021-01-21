@@ -1,22 +1,30 @@
 package RT::Action::NotifySMS;
 
-use base qw(RT::Action);
+use base qw(RT::Action::Notify);
 
 use strict;
 use warnings;
 use LWP::UserAgent;
 
-my @recipients;
-
 sub Prepare {
     my $self = shift;
+    $self->SetRecipients( 'MobilePhone' );
 
-    return 0 unless $self->SetRecipients();
-    $self->SUPER::Prepare();
+    @{ $self->{'SMS'} } = (
+      @{ $self->{'To'} },
+      @{ $self->{'Cc'} },
+      @{ $self->{'Bcc'} },
+      @{ $self->{'PseudoTo'} }
+    );
+
+    return scalar @{ $self->{'SMS'} };
 }
 
+# We overlay the SetRecipients method here in order to get users who may have a
+# Mobile Phone value but no email.
 sub SetRecipients {
     my $self = shift;
+    my $type = shift || 'EmailAddress';
 
     my $ticket = $self->TicketObj;
 
@@ -24,6 +32,7 @@ sub SetRecipients {
     $arg =~ s/\bAll\b/Owner,Requestor,AdminCc,Cc/;
 
     my ( @To, @PseudoTo, @Cc, @Bcc );
+
 
     if ( $arg =~ /\bRequestor\b/ ) {
         push @To, $ticket->Requestors->UserMembersObj;
@@ -65,115 +74,130 @@ sub SetRecipients {
                            \b
                            )
                          !x;
-    while ( $arg =~ m/$custom_role_re/g ) {
-        my ( $argument, $role_id, $name, $type ) = ( $1, $2, $3, $4 );
+    while ($arg =~ m/$custom_role_re/g) {
+        my ($argument, $role_id, $name, $type) = ($1, $2, $3, $4);
         my $role;
 
         if ($name) {
-
             # skip anything that is a core Notify argument
-            next
-                if $name eq 'All'
-                || $name eq 'Owner'
-                || $name eq 'Requestor'
-                || $name eq 'AdminCc'
-                || $name eq 'Cc'
-                || $name eq 'OtherRecipients'
-                || $name eq 'AlwaysNotifyActor'
-                || $name eq 'NeverNotifyActor';
+            next if $name eq 'All'
+                 || $name eq 'Owner'
+                 || $name eq 'Requestor'
+                 || $name eq 'AdminCc'
+                 || $name eq 'Cc'
+                 || $name eq 'OtherRecipients'
+                 || $name eq 'AlwaysNotifyActor'
+                 || $name eq 'NeverNotifyActor';
 
             my $roles = RT::CustomRoles->new( $self->CurrentUser );
-            $roles->Limit(
-                FIELD         => 'Name',
-                VALUE         => $name,
-                CASESENSITIVE => 0
-            );
+            $roles->Limit( FIELD => 'Name', VALUE => $name, CASESENSITIVE => 0 );
 
             # custom roles are named uniquely, but just in case there are
             # multiple matches, bail out as we don't know which one to use
             $role = $roles->First;
-            if ($role) {
+            if ( $role ) {
                 $role = undef if $roles->Next;
             }
-        } else {
+        }
+        else {
             $role = RT::CustomRole->new( $self->CurrentUser );
-            $role->Load($role_id);
+            $role->Load( $role_id );
         }
 
-        unless ( $role && $role->id ) {
-            $RT::Logger->debug(
-                "Unable to load custom role from scrip action argument '$argument'"
-            );
+        unless ($role && $role->id) {
+            $RT::Logger->debug("Unable to load custom role from scrip action argument '$argument'");
             next;
         }
 
         my @role_members = (
-            $ticket->RoleGroup( $role->GroupType )->UserMembersObj,
-            $ticket->QueueObj->RoleGroup( $role->GroupType )
-                ->UserMembersObj,
+            $ticket->RoleGroup($role->GroupType)->UserMembersObj,
+            $ticket->QueueObj->RoleGroup($role->GroupType)->UserMembersObj,
         );
-        push @To, @role_members;
+
+        if (!$type || $type eq 'Cc') {
+            push @Cc, @role_members;
+        }
+        elsif ($type eq 'Bcc') {
+            push @Bcc, @role_members;
+        }
+        elsif ($type eq 'To') {
+            push @To, @role_members;
+        }
     }
 
     if ( $arg =~ /\bCc\b/ ) {
-        push( @To, $ticket->Cc->UserMembersObj );
-        push( @To, $ticket->QueueObj->Cc->UserMembersObj );
+
+        #If we have a To, make the Ccs, Ccs, otherwise, promote them to To
+        if (@To) {
+            push ( @Cc, $ticket->Cc->UserMembersObj );
+            push ( @Cc, $ticket->QueueObj->Cc->UserMembersObj  );
+        }
+        else {
+            push ( @Cc, $ticket->Cc->UserMembersObj  );
+            push ( @To, $ticket->QueueObj->Cc->UserMembersObj  );
+        }
     }
+
     if (   $arg =~ /\bOwner\b/
         && $ticket->OwnerObj->id != RT->Nobody->id
-        && not $ticket->OwnerObj->Disabled )
-    {
-        my $role_group = $self->TicketObj->RoleGroup('Owner');
-        push( @To, $role_group->UserMembersObj );
+        && not $ticket->OwnerObj->Disabled
+    ) {
+        # If we're not sending to Ccs or requestors,
+        # then the Owner can be the To.
+        if (@To) {
+            push ( @Bcc, $ticket->OwnerObj );
+        }
+        else {
+            push ( @To, $ticket->OwnerObj );
+        }
+
     }
 
     if ( $arg =~ /\bAdminCc\b/ ) {
-        push( @To, $ticket->AdminCc->UserMembersObj );
-        push( @To, $ticket->QueueObj->AdminCc->UserMembersObj );
+        push ( @Bcc, $ticket->AdminCc->UserMembersObj  );
+        push ( @Bcc, $ticket->QueueObj->AdminCc->UserMembersObj  );
     }
 
     if ( RT->Config->Get('UseFriendlyToLine') ) {
         unless (@To) {
             push @PseudoTo,
-                sprintf RT->Config->Get('FriendlyToLineFormat'), $arg,
-                $ticket->id;
+                sprintf RT->Config->Get('FriendlyToLineFormat'), $arg, $ticket->id;
         }
     }
 
-    my @NoSquelch;
+    my $getUsersAttr = sub {
+      my $collection = shift;
+
+      my @temp = ();
+      foreach my $users ( @{$collection} ) {
+          if ( ref $users eq 'RT::User' ) {
+              next unless $users->$type;
+              push @temp, $users->$type;
+          }
+          else {
+              while ( my $user = $users->Next ) {
+                  next unless $user->$type;
+                  push @temp, $user->$type;
+              }
+          }
+      };
+
+      return @temp;
+    };
+
+    @{ $self->{'To'} }       = &$getUsersAttr ( \@To );
+    @{ $self->{'Cc'} }       = &$getUsersAttr ( \@Cc );
+    @{ $self->{'Bcc'} }      = &$getUsersAttr ( \@Bcc );
+    @{ $self->{'PseudoTo'} } = &$getUsersAttr ( \@PseudoTo );
+
     if ( $arg =~ /\bOtherRecipients\b/ ) {
         if ( my $attachment = $self->TransactionObj->Attachments->First ) {
-            push @NoSquelch, map $_->address,
+            push @{ $self->{'NoSquelch'}{'Cc'} ||= [] }, map $_->address,
                 Email::Address->parse( $attachment->GetHeader('RT-Send-Cc') );
-            push @NoSquelch, map $_->address,
-                Email::Address->parse(
-                $attachment->GetHeader('RT-Send-Bcc') );
+            push @{ $self->{'NoSquelch'}{'Bcc'} ||= [] }, map $_->address,
+                Email::Address->parse( $attachment->GetHeader('RT-Send-Bcc') );
         }
     }
-
-    # See if we can get some phone numbers from our NoSquelched emails
-    if ( @NoSquelch ) {
-        my $user = RT::User->new(RT->SystemUser);
-        foreach my $email (@NoSquelch) {
-            my ($ret, $msg) = $user->Load($email);
-            RT::Logger->info($msg) unless $ret;
-
-            push @To, $user->MobilePhone unless ! $user->MobilePhone;
-        }
-    }
-
-    my $user = RT::User->new( RT->SystemUser );
-    my @recipients;
-
-    foreach my $role (@To) {
-        while (my $user = $role->Next) {
-            push @recipients, $user->MobilePhone
-                unless !$user->MobilePhone;
-        }
-    }
-    return 0 unless scalar @recipients;
-
-    @{ $self->{'Recipients'} } = @recipients;
 }
 
 sub Commit {
@@ -188,9 +212,13 @@ sub Commit {
     }
 
     my $content = $self->TemplateObj->MIMEObj->as_string;
+    unless ( $content ) {
+        RT::Logger->debug( 'No message found, not sending SMS' );
+        return 1;
+    }
 
     my ( $ret, $msg ) = $self->ScripActionObj->Action->SendMessage(
-        Recipients => $self->{Recipients},
+        Recipients => $self->{'SMS'},
         Msg        => $content,
     );
 

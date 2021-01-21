@@ -39,10 +39,6 @@ sub SendMessage {
             unless RT::Config->Get($config);
     }
 
-    return ( 0, 'Please provide a message to send' ) unless $args{Msg};
-    return ( 0, 'Please provide a recipient' )
-        unless scalar $args{Recipients};
-
     my %Credentials = (
         account_id => RT::Config->Get('TwilioAccounId'),
         auth_token => RT::Config->Get('TwilioAuthToken'),
@@ -61,7 +57,7 @@ sub SendMessage {
         $Credentials{account_id}, $Credentials{auth_token}
     );
 
-    foreach my $to ( $args{Recipients} ) {
+    foreach my $to ( @{$args{'Recipients'}} ) {
         my %text_message = (
             From => $Twilio{'from'},
             To   => $to,
