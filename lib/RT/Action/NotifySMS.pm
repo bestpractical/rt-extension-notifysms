@@ -17,6 +17,15 @@ sub Prepare {
       @{ $self->{'PseudoTo'} }
     );
 
+     unless ( $self->TemplateObj->MIMEObj ) {
+        my ( $ret, $msg ) = $self->TemplateObj->Parse(
+            Argument       => $self->Argument,
+            TicketObj      => $self->TicketObj,
+            TransactionObj => $self->TransactionObj
+        );
+        RT::Logger->error( "Could not parse SMS template: $msg" ) unless $ret;
+    }
+
     return scalar @{ $self->{'SMS'} };
 }
 
@@ -202,14 +211,6 @@ sub SetRecipients {
 
 sub Commit {
     my $self = shift;
-
-    unless ( $self->TemplateObj->MIMEObj ) {
-        my ( $result, $message ) = $self->TemplateObj->Parse(
-            Argument       => $self->Argument,
-            TicketObj      => $self->TicketObj,
-            TransactionObj => $self->TransactionObj
-        );
-    }
 
     my $content = $self->TemplateObj->MIMEObj->as_string;
     unless ( $content ) {
