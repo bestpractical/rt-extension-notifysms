@@ -7,23 +7,6 @@ use warnings;
 use LWP::UserAgent;
 use JSON qw(decode_json);
 
-=head2 NotifyTwilio
-
-Send a message using the Twilio web api, requires the follow
-config values from RT_SiteConfig.pm:
-
-        Set($TwilioAccounId, 'Secret');
-        Set($TwilioAuthToken, 'Secret');
-        Set($APIURL, 'https://api.twilio.com/2010-04-01/Accounts/');
-        Set($APIDomain, 'api.twilio.com:443');
-        Set($APIRealm, 'Twilio API');
-        Set($MessageSender, '0123456789');
-
-To obtain the Twilio AuthToken and AccountId create a new project of type
-programmable sms. Once done setting up the project you will have access to
-the projects AccountId and AuthToken.
-=cut
-
 sub SendMessage {
     my $self = shift;
     my %args = (
