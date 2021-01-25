@@ -1,7 +1,7 @@
 push @ScripActions, (
     {
         Name        => 'Notify Twilio',
-        Description => 'Send SMS messages using Twilio API',
+        Description => 'Send SMS Messages Using Twilio API To All Roles',
         ExecModule  => 'NotifyTwilio',
         Argument    => 'All',
     },
