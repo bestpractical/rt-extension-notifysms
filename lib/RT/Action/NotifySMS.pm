@@ -218,7 +218,7 @@ sub Commit {
         return 1;
     }
 
-    my ( $ret, $msg ) = $self->ScripActionObj->Action->SendMessage(
+    my ( $ret, $msg ) = $self->SendMessage(
         Recipients => $self->{'SMS'},
         Msg        => $content,
     );
