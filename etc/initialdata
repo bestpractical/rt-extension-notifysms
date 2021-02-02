@@ -6,3 +6,12 @@ push @ScripActions, (
         Argument    => 'All',
     },
 );
+
+our @Templates = (
+  {
+    Name        => 'SMS Correspondence',
+    Description => 'Correspondence template for SMS alerts.',
+    Content => q{
+{$Transaction->Content()}}
+  }
+);
