@@ -228,4 +228,16 @@ sub Commit {
     return $ret;
 }
 
+=pod
+We need to overlay this method as our recipients array is an array
+of phone numbers and not emails. Which results in an error if we try
+to call C<Encode::decode("UTF-8",$self->TemplateObj->MIMEObj->head->get($field));>
+=cut
+
+sub AddressesFromHeader {
+    my $self      = shift;
+    my $field     = shift;
+    return (());
+}
+
 1;
