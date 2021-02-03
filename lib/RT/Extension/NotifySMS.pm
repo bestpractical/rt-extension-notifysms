@@ -3,6 +3,13 @@ use warnings;
 
 package RT::Extension::NotifySMS;
 
+use RT::Transaction;
+
+$RT::Transaction::_BriefDescriptions{'SMS'} = sub {
+    my $self = shift;
+    return $self->loc( "SMS notifications added" ); #loc()
+};
+
 our $VERSION = '0.01';
 
 =head1 NAME

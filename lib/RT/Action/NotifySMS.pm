@@ -222,8 +222,21 @@ sub Commit {
         Recipients => $self->{'SMS'},
         Msg        => $content,
     );
+    if ( $ret ) {
+        my $transaction
+          = RT::Transaction->new( $self->TransactionObj->CreatorObj );
 
-    RT::Logger->error($msg) unless $ret;
+        ( $ret, $msg ) = $transaction->Create(
+          Ticket         => $self->TicketObj->Id,
+          Type           => 'SMS',
+          MIMEObj        => $self->TemplateObj->MIMEObj,
+          ActivateScrips => 0
+      );
+      RT::Logger->error( "Failed to create transaction for SMS notification: $msg" ) unless $ret;
+    }
+    else {
+        RT::Logger->error( $msg );
+    }
 
     return $ret;
 }
