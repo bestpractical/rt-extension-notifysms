@@ -10,7 +10,7 @@ sub Prepare {
     my $self = shift;
     $self->SetRecipients( 'MobilePhone' );
 
-    @{ $self->{'SMS'} } = (
+    @{ $self->{'Recipients'} } = (
       @{ $self->{'To'} },
       @{ $self->{'Cc'} },
       @{ $self->{'Bcc'} },
@@ -25,8 +25,7 @@ sub Prepare {
         );
         RT::Logger->error( "Could not parse SMS template: $msg" ) unless $ret;
     }
-
-    return scalar @{ $self->{'SMS'} };
+    return scalar @{ $self->{'Recipients'} };
 }
 
 # We overlay the SetRecipients method here in order to get users who may have a
@@ -219,7 +218,7 @@ sub Commit {
     }
 
     my ( $ret, $msg ) = $self->SendMessage(
-        Recipients => $self->{'SMS'},
+        Recipients => $self->{'Recipients'},
         Msg        => $content,
     );
     if ( $ret ) {
@@ -248,8 +247,9 @@ to call C<Encode::decode("UTF-8",$self->TemplateObj->MIMEObj->head->get($field))
 =cut
 
 sub AddressesFromHeader {
-    my $self      = shift;
-    my $field     = shift;
+    my $self    = shift;
+    my $field   = shift;
+
     return (());
 }
 
